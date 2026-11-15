@@ -87,10 +87,6 @@ Mô hình không tự bịa được link ảnh có thật, nên cách chắc ch
    > nu-toc-den-hoc-sinh.png, nam-kiem-si.png, …
 
 Chat cũ có sẵn thẻ `[avatar: …]` sẽ tự nhận khi mở lại, trừ khi bạn đã bấm *Dùng ảnh gốc* cho chat đó.
+Thẻ chỉ bị ẩn khi hiển thị, nội dung tin nhắn không đổi.
 
-## Cài đặt (Extensions → Chat Avatar)
-- **Bật avatar riêng cho từng chat**: tắt thì mọi chat dùng lại ảnh gốc. Dữ liệu vẫn giữ nguyên.
-- **Tự nhận thẻ `[avatar: …]`**
-- **Ẩn thẻ `[avatar: …]` khỏi khung chat**: chỉ ẩn khi hiển thị, nội dung tin nhắn không đổi.
-- **Mở khung cắt ảnh khi tải ảnh lên** và **Tỉ lệ khung cắt**: 2:3 (giống avatar ST), 1:1 hoặc tự do.
-- **Cạnh dài tối đa khi tải ảnh lên**
+Extension không có bảng cài đặt: khung cắt cố định tỉ lệ 2:3 như avatar gốc, ảnh được thu về cạnh dài 768px.

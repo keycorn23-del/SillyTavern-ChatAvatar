@@ -132,12 +132,3 @@
     border-radius: 10px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
 }
-
-#ca_settings .inline-drawer-content {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-#ca_settings .ca-open-btn {
-    width: fit-content;
-}
