@@ -23,6 +23,7 @@
         autoTag: true,
         hideTag: true,
         maxSize: 768,
+        index: {}, // "<file thẻ>::<tên chat>" → avatar, dùng cho danh sách chat gần đây / lịch sử chat
     };
 
     const ctx = () => SillyTavern.getContext();
@@ -32,8 +33,9 @@
         if (!all[MODULE] || typeof all[MODULE] !== 'object') all[MODULE] = {};
         const s = all[MODULE];
         for (const [k, v] of Object.entries(DEFAULTS)) {
-            if (s[k] === undefined) s[k] = v;
+            if (s[k] === undefined) s[k] = (v && typeof v === 'object') ? {} : v;
         }
+        if (!s.index || typeof s.index !== 'object') s.index = {};
         return s;
     }
 
@@ -80,9 +82,59 @@
             ? { src, source, at: Date.now() }
             : { src: '', cleared: true, at: Date.now() };
         await c.saveMetadata();
+        syncIndex();
         applyAll();
         refreshModal();
         return true;
+    }
+
+    // ---------- Bảng tra cho danh sách chat ----------
+    // Danh sách "chat gần đây" và "lịch sử chat" không đọc metadata của từng chat,
+    // nên lưu thêm một bảng tra nhỏ trong cài đặt của extension.
+
+    function chatKey(avatar, file) {
+        return `${avatar}::${String(file || '').replace(/\.jsonl$/i, '')}`;
+    }
+
+    function currentKey() {
+        const c = ctx();
+        const ch = c.characters?.[c.characterId];
+        return ch?.avatar ? chatKey(ch.avatar, c.getCurrentChatId()) : '';
+    }
+
+    function syncIndex() {
+        if (!isSoloChat()) return;
+        const key = currentKey();
+        if (!key) return;
+        const idx = settings().index;
+        const src = getChatAvatarSrc();
+        let changed = false;
+        if (src && idx[key] !== src) { idx[key] = src; changed = true; }
+        if (!src && key in idx) { delete idx[key]; changed = true; }
+        if (changed) ctx().saveSettingsDebounced();
+    }
+
+    function onChatRenamed(data) {
+        if (!data?.avatarId || data.groupId) return;
+        const idx = settings().index;
+        const from = chatKey(data.avatarId, data.oldFileName);
+        if (!(from in idx)) return;
+        idx[chatKey(data.avatarId, data.newFileName)] = idx[from];
+        delete idx[from];
+        ctx().saveSettingsDebounced();
+        applyLists();
+    }
+
+    function onChatDeleted(name) {
+        const c = ctx();
+        const ch = !c.groupId && c.characters?.[c.characterId];
+        if (!ch?.avatar) return;
+        const key = chatKey(ch.avatar, name);
+        const idx = settings().index;
+        if (key in idx) {
+            delete idx[key];
+            ctx().saveSettingsDebounced();
+        }
     }
 
     // ---------- Hiển thị ----------
@@ -102,6 +154,21 @@
         if (next !== html) t.innerHTML = next;
     }
 
+    /** Đặt ảnh riêng (want) hoặc trả lại ảnh gốc (want rỗng). Trả về true nếu đang dùng ảnh riêng. */
+    function setImg(img, want) {
+        if (want) {
+            if (!('caOrig' in img.dataset)) img.dataset.caOrig = img.getAttribute('src') || '';
+            if (img.getAttribute('src') !== want) img.setAttribute('src', want);
+            return true;
+        }
+        if ('caOrig' in img.dataset) {
+            const orig = img.dataset.caOrig;
+            delete img.dataset.caOrig;
+            if (img.getAttribute('src') !== orig) img.setAttribute('src', orig);
+        }
+        return false;
+    }
+
     function applyOne(mes, want, charName) {
         const img = mes.querySelector('.avatar img');
         const isChar = mes.getAttribute('is_user') !== 'true'
@@ -109,16 +176,7 @@
             && mes.getAttribute('ch_name') === charName;
 
         if (img) {
-            if (want && isChar) {
-                if (!('caOrig' in img.dataset)) img.dataset.caOrig = img.getAttribute('src') || '';
-                if (img.getAttribute('src') !== want) img.setAttribute('src', want);
-                mes.classList.add('ca-custom');
-            } else if ('caOrig' in img.dataset) {
-                const orig = img.dataset.caOrig;
-                delete img.dataset.caOrig;
-                if (img.getAttribute('src') !== orig) img.setAttribute('src', orig);
-                mes.classList.remove('ca-custom');
-            }
+            mes.classList.toggle('ca-custom', setImg(img, isChar ? want : ''));
         }
 
         if (settings().enabled && settings().hideTag && mes.getAttribute('is_user') !== 'true') {
@@ -130,36 +188,64 @@
         return settings().enabled ? resolveSrc(getChatAvatarSrc()) : '';
     }
 
+    /** Danh sách "Chat gần đây" (màn hình chào) và "Lịch sử chat" (Manage chat files). */
+    function applyLists() {
+        const enabled = settings().enabled;
+        const idx = settings().index;
+        const lookup = (avatar, file) => (enabled && avatar && file) ? resolveSrc(idx[chatKey(avatar, file)]) : '';
+
+        document.querySelectorAll('.recentChat[data-file]').forEach(item => {
+            const img = item.querySelector('.avatar img');
+            if (img) setImg(img, lookup(item.getAttribute('data-avatar'), item.getAttribute('data-file')));
+        });
+
+        const c = ctx();
+        const ch = !c.groupId && c.characters?.[c.characterId];
+        document.querySelectorAll('#select_chat_div .select_chat_block_wrapper').forEach(w => {
+            const img = w.querySelector('.avatar img');
+            const file = w.querySelector('.select_chat_block[file_name]')?.getAttribute('file_name');
+            if (img) setImg(img, ch ? lookup(ch.avatar, file) : '');
+        });
+    }
+
     function applyAll() {
         const want = currentWant();
         const name = ctx().name2;
         document.querySelectorAll('#chat .mes').forEach(mes => applyOne(mes, want, name));
+        applyLists();
     }
 
-    // Chỉ xử lý những tin nhắn vừa thay đổi (nhẹ khi đang stream)
+    // Chỉ xử lý những tin nhắn vừa thay đổi (nhẹ khi đang stream).
+    // Chạy ngay trong callback của MutationObserver (trước khi vẽ) để không chớp ảnh gốc.
     const pending = new Set();
-    let frame = 0;
+    let listsDirty = false;
     function flush() {
-        frame = 0;
         const want = currentWant();
         const name = ctx().name2;
         for (const mes of pending) {
             if (mes.isConnected) applyOne(mes, want, name);
         }
         pending.clear();
+        if (listsDirty) {
+            listsDirty = false;
+            applyLists();
+        }
     }
+    const LIST_SEL = '.recentChat, .select_chat_block_wrapper';
     function onMutations(records) {
         for (const r of records) {
             const el = r.target.nodeType === 1 ? r.target : r.target.parentElement;
             const mes = el?.closest?.('.mes');
             if (mes) pending.add(mes);
+            if (el?.closest?.(LIST_SEL)) listsDirty = true;
             r.addedNodes.forEach(n => {
                 if (n.nodeType !== 1) return;
                 if (n.classList.contains('mes')) pending.add(n);
                 else n.querySelectorAll?.('.mes').forEach(m => pending.add(m));
+                if (n.matches?.(LIST_SEL) || n.querySelector?.(LIST_SEL)) listsDirty = true;
             });
         }
-        if (pending.size && !frame) frame = requestAnimationFrame(flush);
+        if (pending.size || listsDirty) flush();
     }
 
     // ---------- Tự nhận thẻ [avatar: ...] ----------
@@ -485,23 +571,29 @@
         addMenuButton();
         registerCommand();
 
-        const chatEl = document.getElementById('chat');
-        if (chatEl) {
-            new MutationObserver(onMutations).observe(chatEl, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['src'],
-            });
+        const observer = new MutationObserver(onMutations);
+        for (const id of ['chat', 'select_chat_div']) {
+            const el = document.getElementById(id);
+            if (el) {
+                observer.observe(el, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    attributeFilter: ['src'],
+                });
+            }
         }
         window.addEventListener('click', onAvatarClick, true);
 
         const { eventSource, eventTypes } = ctx();
         eventSource.on(eventTypes.CHAT_CHANGED, async () => {
             closeModal();
+            syncIndex();
             applyAll();
             await scanHistory();
         });
+        if (eventTypes.CHAT_RENAMED) eventSource.on(eventTypes.CHAT_RENAMED, onChatRenamed);
+        if (eventTypes.CHAT_DELETED) eventSource.on(eventTypes.CHAT_DELETED, onChatDeleted);
         for (const ev of ['MESSAGE_RECEIVED', 'MESSAGE_EDITED', 'MESSAGE_SWIPED', 'CHARACTER_MESSAGE_RENDERED']) {
             if (eventTypes[ev]) eventSource.on(eventTypes[ev], id => scanMessage(id));
         }

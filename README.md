@@ -7,7 +7,10 @@ và mỗi chat hiện một avatar khác nhau.
   Branch hay backup chat cũng giữ avatar.
 - Ảnh tải lên được thu nhỏ (mặc định cạnh dài 768px), rồi lưu vào
   `data/<user>/user/images/chat-avatars/` trên VPS.
-- Chỉ đổi avatar ở các tin nhắn của nhân vật trong khung chat. Ảnh thẻ trong danh sách nhân vật vẫn giữ nguyên.
+- Avatar riêng hiện ở: tin nhắn của nhân vật trong khung chat, danh sách **Chat gần đây** ở màn hình chào,
+  và danh sách **lịch sử chat** (Manage chat files). Ảnh thẻ trong danh sách nhân vật vẫn giữ nguyên.
+- Hai danh sách chat đọc từ một bảng tra lưu trong cài đặt của extension (nằm trên server, đồng bộ giữa các máy).
+  Chat nào đã đặt avatar từ trước bản 1.1 thì mở chat đó một lần là danh sách cập nhật.
 - Group chat chưa được hỗ trợ.
 
 ## Cài đặt
