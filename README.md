@@ -50,7 +50,9 @@ scp -r "D:/PROMPT/VPS/SILLY TAVERN/chat-avatar" user@vps:/đường/dẫn/SillyT
 
 ### Đặt tay
 Mở chat, bấm nút **cây đũa thần** (Extensions menu), chọn **Avatar cho chat này**. Sau đó:
-- **Tải ảnh lên**, kéo thả ảnh vào khung, hoặc **Ctrl+V** để dán ảnh từ clipboard;
+- **Tải ảnh lên**, kéo thả ảnh vào khung, hoặc **Ctrl+V** để dán ảnh từ clipboard.
+  Sau đó hiện **khung cắt ảnh giống lúc đổi avatar gốc**: lăn chuột hoặc chụm hai ngón để zoom, kéo để chọn vùng, rồi bấm *Crop*;
+- **Cắt lại**: mở khung cắt cho avatar đang dùng (với ảnh link ngoài, trang đó có thể chặn);
 - hoặc dán **link ảnh** rồi bấm *Áp dụng*;
 - **Dùng ảnh gốc** để bỏ avatar riêng của chat đó.
 
@@ -90,4 +92,5 @@ Chat cũ có sẵn thẻ `[avatar: …]` sẽ tự nhận khi mở lại, trừ 
 - **Bật avatar riêng cho từng chat**: tắt thì mọi chat dùng lại ảnh gốc. Dữ liệu vẫn giữ nguyên.
 - **Tự nhận thẻ `[avatar: …]`**
 - **Ẩn thẻ `[avatar: …]` khỏi khung chat**: chỉ ẩn khi hiển thị, nội dung tin nhắn không đổi.
+- **Mở khung cắt ảnh khi tải ảnh lên** và **Tỉ lệ khung cắt**: 2:3 (giống avatar ST), 1:1 hoặc tự do.
 - **Cạnh dài tối đa khi tải ảnh lên**

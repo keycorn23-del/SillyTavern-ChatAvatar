@@ -23,6 +23,8 @@
         autoTag: true,
         hideTag: true,
         maxSize: 768,
+        crop: true,        // mở khung cắt ảnh của ST trước khi tải lên
+        cropAspect: '2/3', // '2/3' (giống avatar ST), '1' (vuông), 'free' (tự do)
         index: {}, // "<file thẻ>::<tên chat>" → avatar, dùng cho danh sách chat gần đây / lịch sử chat
     };
 
@@ -293,6 +295,40 @@
         });
     }
 
+    function blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.onerror = () => reject(new Error('Không đọc được file ảnh'));
+            r.readAsDataURL(blob);
+        });
+    }
+
+    function cropAspectValue() {
+        const v = String(settings().cropAspect || '2/3');
+        if (v === 'free') return NaN; // Cropper: NaN = tự do
+        const [a, b] = v.split('/').map(Number);
+        return b ? a / b : (a || 2 / 3);
+    }
+
+    /**
+     * Mở khung cắt ảnh có sẵn của SillyTavern (giống lúc đổi avatar gốc).
+     * @returns {Promise<Blob|null|undefined>} Blob đã cắt; null nếu người dùng huỷ;
+     *          undefined nếu ST không có khung cắt (khi đó dùng nguyên ảnh).
+     */
+    async function cropWithST(blob) {
+        const c = ctx();
+        if (!c.Popup || c.POPUP_TYPE?.CROP === undefined) return undefined;
+        const dataUrl = await blobToDataUrl(blob);
+        const dlg = new c.Popup('Chọn vùng ảnh làm avatar cho chat này', c.POPUP_TYPE.CROP, '', {
+            cropImage: dataUrl,
+            cropAspect: cropAspectValue(),
+        });
+        const result = await dlg.show();
+        if (!result || typeof result !== 'string') return null;
+        return await (await fetch(result)).blob();
+    }
+
     async function uploadImage(file) {
         if (!file?.type?.startsWith('image/')) throw new Error('File không phải ảnh');
         const img = await loadImage(file);
@@ -343,7 +379,10 @@
     }
 
     function onModalKey(e) {
-        if (e.key === 'Escape') { e.stopPropagation(); closeModal(); }
+        if (e.key !== 'Escape') return;
+        if (document.querySelector('dialog[open]')) return; // để khung cắt ảnh của ST tự xử lý Esc
+        e.stopPropagation();
+        closeModal();
     }
 
     function setStatus(text, isError = false) {
@@ -361,20 +400,47 @@
         modal.querySelector('.ca-preview').src = src ? resolveSrc(src) : defaultAvatarUrl();
         modal.querySelector('.ca-chatname').textContent = `${c.name2} · ${c.getCurrentChatId()}`;
         modal.querySelector('.ca-clear').disabled = !src;
+        modal.querySelector('.ca-recrop').disabled = !src;
         modal.querySelector('.ca-url').value = src && !src.startsWith('data:') ? src : '';
         setStatus(src ? 'Đang dùng avatar riêng cho chat này.' : 'Đang dùng ảnh gốc của thẻ.');
     }
 
-    async function handleFile(file) {
-        if (!file) return;
+    let busy = false;
+    async function handleFile(file, { forceCrop = false } = {}) {
+        if (!file || busy) return;
+        busy = true;
         try {
+            let source = file;
+            if (settings().crop || forceCrop) {
+                setStatus('Chọn vùng ảnh trong khung cắt…');
+                const cropped = await cropWithST(file);
+                if (cropped === null) { setStatus('Đã huỷ, avatar giữ nguyên.'); return; }
+                if (cropped) source = cropped;
+            }
             setStatus('Đang tải ảnh lên…');
-            const path = await uploadImage(file);
+            const path = await uploadImage(source);
             await setChatAvatar(path, 'upload');
             notify('success', 'Đã đặt avatar cho chat này.');
         } catch (e) {
             console.error('[Chat Avatar]', e);
             setStatus(`Lỗi: ${e.message || e}`, true);
+        } finally {
+            busy = false;
+        }
+    }
+
+    /** Cắt lại avatar đang dùng. */
+    async function recropCurrent() {
+        const src = getChatAvatarSrc();
+        if (!src) return;
+        try {
+            const res = await fetch(resolveSrc(src));
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const blob = await res.blob();
+            await handleFile(new File([blob], 'avatar', { type: blob.type || 'image/png' }), { forceCrop: true });
+        } catch (e) {
+            console.error('[Chat Avatar]', e);
+            setStatus('Không lấy được ảnh hiện tại để cắt (link ngoài có thể chặn). Hãy tải ảnh về rồi tải lên lại.', true);
         }
     }
 
@@ -398,7 +464,10 @@
                 </div>
                 <div class="ca-row">
                     <button class="menu_button ca-upload"><i class="fa-solid fa-upload"></i> Tải ảnh lên</button>
-                    <button class="menu_button ca-clear"><i class="fa-solid fa-rotate-left"></i> Dùng ảnh gốc</button>
+                    <button class="menu_button ca-recrop"><i class="fa-solid fa-crop-simple"></i> Cắt lại</button>
+                </div>
+                <div class="ca-row">
+                    <button class="menu_button ca-clear"><i class="fa-solid fa-rotate-left"></i> Dùng ảnh gốc của thẻ</button>
                 </div>
                 <div class="ca-row">
                     <input class="text_pole ca-url" type="text" placeholder="Link ảnh, hoặc tên file trong thư mục ${FOLDER}">
@@ -441,6 +510,7 @@
         q('.ca-apply').addEventListener('click', applyUrl);
         q('.ca-url').addEventListener('keydown', e => { if (e.key === 'Enter') applyUrl(); });
         q('.ca-clear').addEventListener('click', () => setChatAvatar('', 'manual'));
+        q('.ca-recrop').addEventListener('click', recropCurrent);
         q('.ca-preview').addEventListener('error', () => {
             if (getChatAvatarSrc()) setStatus('Không tải được ảnh này — kiểm tra lại link hoặc tên file.', true);
         });
@@ -493,6 +563,14 @@
                     <label class="checkbox_label"><input type="checkbox" data-key="enabled"> Bật avatar riêng cho từng chat</label>
                     <label class="checkbox_label"><input type="checkbox" data-key="autoTag"> Tự nhận thẻ <code>[avatar: …]</code> trong tin nhắn của nhân vật</label>
                     <label class="checkbox_label"><input type="checkbox" data-key="hideTag"> Ẩn thẻ <code>[avatar: …]</code> khỏi khung chat</label>
+                    <label class="checkbox_label"><input type="checkbox" data-key="crop"> Mở khung cắt ảnh khi tải ảnh lên</label>
+                    <label>Tỉ lệ khung cắt
+                        <select class="text_pole" data-key="cropAspect">
+                            <option value="2/3">2:3 (giống avatar ST)</option>
+                            <option value="1">1:1 (vuông)</option>
+                            <option value="free">Tự do</option>
+                        </select>
+                    </label>
                     <label>Cạnh dài tối đa khi tải ảnh lên (px)
                         <input class="text_pole" type="number" min="128" max="2048" step="64" data-key="maxSize">
                     </label>
@@ -508,7 +586,9 @@
             if (input.type === 'checkbox') input.checked = !!s[key];
             else input.value = s[key];
             input.addEventListener('change', () => {
-                s[key] = input.type === 'checkbox' ? input.checked : Number(input.value) || DEFAULTS[key];
+                if (input.type === 'checkbox') s[key] = input.checked;
+                else if (input.type === 'number') s[key] = Number(input.value) || DEFAULTS[key];
+                else s[key] = input.value;
                 ctx().saveSettingsDebounced();
                 applyAll();
             });
