@@ -1,0 +1,143 @@
+/* Chat Avatar */
+
+#ca_modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+#ca_modal .ca-dialog {
+    width: min(420px, 100%);
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--SmartThemeBorderColor, #555);
+    background: var(--SmartThemeBlurTintColor, #1e1e1e);
+    color: var(--SmartThemeBodyColor, #ddd);
+    backdrop-filter: blur(var(--SmartThemeBlurStrength, 8px));
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+#ca_modal .ca-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 1.05em;
+}
+
+#ca_modal .ca-x {
+    background: none;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    font-size: 1.2em;
+    opacity: 0.7;
+    padding: 4px 6px;
+}
+#ca_modal .ca-x:hover { opacity: 1; }
+
+#ca_modal .ca-chatname {
+    font-size: 0.85em;
+    opacity: 0.7;
+    overflow-wrap: anywhere;
+}
+
+#ca_modal .ca-drop {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px;
+    border: 2px dashed var(--SmartThemeBorderColor, #555);
+    border-radius: 10px;
+    cursor: pointer;
+    outline: none;
+}
+#ca_modal .ca-drop:focus-visible,
+#ca_modal .ca-drop.ca-over {
+    border-color: var(--SmartThemeQuoteColor, #e0a050);
+}
+
+#ca_modal .ca-preview {
+    width: 160px;
+    height: 240px;
+    object-fit: cover;
+    border-radius: 10px;
+    background: rgba(127, 127, 127, 0.15);
+}
+
+#ca_modal .ca-hint {
+    font-size: 0.85em;
+    opacity: 0.7;
+    text-align: center;
+}
+
+#ca_modal .ca-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+#ca_modal .ca-row .menu_button {
+    flex: 1 1 auto;
+    margin: 0;
+    white-space: nowrap;
+}
+#ca_modal .ca-row .ca-url {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+}
+#ca_modal .ca-row .ca-apply { flex: 0 0 auto; }
+#ca_modal .menu_button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+#ca_modal .ca-status {
+    min-height: 1.2em;
+    font-size: 0.85em;
+    opacity: 0.85;
+}
+#ca_modal .ca-status.ca-error {
+    color: #ff6b6b;
+    opacity: 1;
+}
+
+/* Phóng to avatar */
+#ca_zoom {
+    position: fixed;
+    inset: 0;
+    z-index: 10060;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.75);
+    cursor: zoom-out;
+}
+#ca_zoom img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+#ca_settings .inline-drawer-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+#ca_settings .ca-open-btn {
+    width: fit-content;
+}
