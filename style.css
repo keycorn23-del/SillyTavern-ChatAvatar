@@ -92,12 +92,14 @@
     margin: 0;
     white-space: nowrap;
 }
-#ca_modal .ca-row .ca-url {
+#ca_modal .ca-row .ca-url,
+#ca_modal .ca-row .ca-name {
     flex: 1 1 auto;
     min-width: 0;
     margin: 0;
 }
-#ca_modal .ca-row .ca-apply { flex: 0 0 auto; }
+#ca_modal .ca-row .ca-apply,
+#ca_modal .ca-row .ca-name-save { flex: 0 0 auto; }
 #ca_modal .menu_button:disabled {
     opacity: 0.45;
     cursor: default;

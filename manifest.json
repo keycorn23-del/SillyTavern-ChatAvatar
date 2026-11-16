@@ -1,11 +1,11 @@
 {
-    "display_name": "Chat Avatar (avatar riêng cho từng chat)",
+    "display_name": "Chat Avatar (avatar & tên riêng cho từng chat)",
     "loading_order": 100,
     "requires": [],
     "optional": [],
     "js": "index.js",
     "css": "style.css",
     "author": "ky",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "homePage": "https://github.com/keycorn23-del/SillyTavern-ChatAvatar"
 }
